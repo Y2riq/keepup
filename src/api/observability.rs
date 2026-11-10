@@ -378,9 +378,11 @@ pub async fn import_handler(
                 id, name, url, check_interval_secs, timeout_secs, max_retries,
                 is_active, is_public, last_status, check_ssl, ssl_warning_days,
                 check_domain_expiry, domain_warning_days, http_method, expected_status,
-                push_token, grace_secs, dns_record_type, resend_interval_mins
+                request_headers, body_keyword, json_pointer, json_expected,
+                degraded_latency_ms, push_token, grace_secs, dns_record_type,
+                dns_expected_value, resend_interval_mins, check_type, port, dns_expected
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
                 name = excluded.name,
                 url = excluded.url,
@@ -388,7 +390,25 @@ pub async fn import_handler(
                 timeout_secs = excluded.timeout_secs,
                 max_retries = excluded.max_retries,
                 is_active = excluded.is_active,
-                is_public = excluded.is_public
+                is_public = excluded.is_public,
+                check_ssl = excluded.check_ssl,
+                ssl_warning_days = excluded.ssl_warning_days,
+                check_domain_expiry = excluded.check_domain_expiry,
+                domain_warning_days = excluded.domain_warning_days,
+                http_method = excluded.http_method,
+                expected_status = excluded.expected_status,
+                request_headers = excluded.request_headers,
+                body_keyword = excluded.body_keyword,
+                json_pointer = excluded.json_pointer,
+                json_expected = excluded.json_expected,
+                degraded_latency_ms = excluded.degraded_latency_ms,
+                grace_secs = excluded.grace_secs,
+                dns_record_type = excluded.dns_record_type,
+                dns_expected_value = excluded.dns_expected_value,
+                resend_interval_mins = excluded.resend_interval_mins,
+                check_type = excluded.check_type,
+                port = excluded.port,
+                dns_expected = excluded.dns_expected
             "#,
         )
         .bind(&m.id)
@@ -406,14 +426,24 @@ pub async fn import_handler(
         .bind(m.domain_warning_days)
         .bind(&m.http_method)
         .bind(&m.expected_status)
+        .bind(&m.request_headers)
+        .bind(&m.body_keyword)
+        .bind(&m.json_pointer)
+        .bind(&m.json_expected)
+        .bind(m.degraded_latency_ms)
         .bind(&m.push_token)
         .bind(m.grace_secs)
         .bind(&m.dns_record_type)
+        .bind(&m.dns_expected_value)
         .bind(m.resend_interval_mins)
+        .bind(&m.check_type)
+        .bind(m.port)
+        .bind(&m.dns_expected)
         .execute(&mut *tx)
         .await?;
 
         monitors_imported += 1;
+        let _ = state.reload_tx.send(m.id.clone());
     }
 
     let mut status_pages_imported = 0;

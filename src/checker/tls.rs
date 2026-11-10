@@ -8,7 +8,6 @@ use tokio::time::timeout;
 use tokio_rustls::rustls::client::danger::{
     HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier,
 };
-use tokio_rustls::rustls::client::WebPkiServerVerifier;
 use tokio_rustls::rustls::crypto::{
     ring::default_provider, verify_tls12_signature, verify_tls13_signature, CryptoProvider,
 };
@@ -207,22 +206,6 @@ pub async fn check_ssl_expiration(
 
         let leaf_der = peer_certs.first().ok_or(SslCheckError::NoCertificates)?;
 
-        let is_trusted = WebPkiServerVerifier::builder_with_provider(root_cert_store(), provider)
-            .build()
-            .ok()
-            .map(|verifier| {
-                verifier
-                    .verify_server_cert(
-                        leaf_der,
-                        &peer_certs[1..],
-                        &server_name,
-                        &[],
-                        UnixTime::now(),
-                    )
-                    .is_ok()
-            })
-            .unwrap_or(false);
-
         let (_, cert) = parse_x509_certificate(leaf_der.as_ref())
             .map_err(|e| SslCheckError::Parse(e.to_string()))?;
 
@@ -239,7 +222,7 @@ pub async fn check_ssl_expiration(
             host,
             expires_at: not_after_dt.to_rfc3339(),
             days_remaining,
-            is_trusted,
+            is_trusted: false,
         })
     })
     .await

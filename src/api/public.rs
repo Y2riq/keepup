@@ -1818,6 +1818,7 @@ mod tests {
         );
 
         // Now assign m-pub-unassigned alongside private & paused -> only m-pub-unassigned should be visible
+        state.invalidate_status_cache().await;
         crate::db::status_pages::update_status_page(
             &pool,
             "default",

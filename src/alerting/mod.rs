@@ -393,29 +393,25 @@ pub async fn execute_channel_attempt(
                 DispatchOutcome::Success
             } else if status == reqwest::StatusCode::TOO_MANY_REQUESTS {
                 let retry_after = parse_retry_after(r.headers().get(reqwest::header::RETRY_AFTER));
-                let text = r.text().await.unwrap_or_default();
                 DispatchOutcome::TransientFailure {
-                    error: format!("HTTP 429 Too Many Requests: {}", truncate_text(&text, 250)),
+                    error: "HTTP 429 Too Many Requests".to_string(),
                     status_code: Some(429),
                     retry_after,
                 }
             } else if status.is_server_error() {
-                let text = r.text().await.unwrap_or_default();
                 DispatchOutcome::TransientFailure {
-                    error: format!("HTTP {} Server Error: {}", status.as_u16(), truncate_text(&text, 250)),
+                    error: format!("HTTP {} Server Error", status.as_u16()),
                     status_code: Some(status.as_u16()),
                     retry_after: None,
                 }
             } else if status.is_client_error() {
-                let text = r.text().await.unwrap_or_default();
                 DispatchOutcome::PermanentFailure {
-                    error: format!("HTTP {} Client Error: {}", status.as_u16(), truncate_text(&text, 250)),
+                    error: format!("HTTP {} Client Error", status.as_u16()),
                     status_code: Some(status.as_u16()),
                 }
             } else {
-                let text = r.text().await.unwrap_or_default();
                 DispatchOutcome::PermanentFailure {
-                    error: format!("Unexpected HTTP status {}: {}", status.as_u16(), truncate_text(&text, 250)),
+                    error: format!("Unexpected HTTP status {}", status.as_u16()),
                     status_code: Some(status.as_u16()),
                 }
             }
@@ -776,11 +772,13 @@ mod tests {
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let addr = listener.local_addr().unwrap();
         tokio::spawn(async move {
-            if let Ok((mut sock, _)) = listener.accept().await {
-                let mut buf = [0u8; 1024];
-                let _ = sock.read(&mut buf).await;
-                let resp = "HTTP/1.1 500 Internal Server Error\r\nContent-Length: 25\r\n\r\nSECRET_INTERNAL_BODY_LEAK";
-                let _ = sock.write_all(resp.as_bytes()).await;
+            loop {
+                if let Ok((mut sock, _)) = listener.accept().await {
+                    let mut buf = [0u8; 1024];
+                    let _ = sock.read(&mut buf).await;
+                    let resp = "HTTP/1.1 500 Internal Server Error\r\nContent-Length: 25\r\n\r\nSECRET_INTERNAL_BODY_LEAK";
+                    let _ = sock.write_all(resp.as_bytes()).await;
+                }
             }
         });
 

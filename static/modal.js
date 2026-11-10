@@ -97,7 +97,7 @@ function validateUrlInput(input) {
   try {
     const parsed = new URL(val);
     if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
-      indicator.innerHTML = `<span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:5px;height:5px;border-radius:50%;background:#84cc6e;display:inline-block;"></span><span style="color:#84cc6e;font-weight:600;font-size:10px;font-family:var(--mono,monospace);">${parsed.protocol.toUpperCase().replace(':', '')} VALID</span></span>`;
+      indicator.innerHTML = `<span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:5px;height:5px;border-radius:50%;background:#30d158;display:inline-block;"></span><span style="color:#30d158;font-weight:600;font-size:10px;font-family:var(--mono,monospace);">${parsed.protocol.toUpperCase().replace(':', '')} VALID</span></span>`;
     } else {
       indicator.innerHTML = `<span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:5px;height:5px;border-radius:50%;background:#f0707a;display:inline-block;"></span><span style="color:#f0707a;font-size:10px;font-family:var(--mono,monospace);">INVALID PROTOCOL</span></span>`;
     }
@@ -826,7 +826,7 @@ async function loadMonitorChannelsChecklist(monitorIdOrSelectedIds) {
         return `
         <label class="flex items-center justify-between p-2 rounded-xl bg-[#101011] hover:bg-[#1a1a1c] border border-[#2a2a2d] transition cursor-pointer select-none mb-1.5 last:mb-0">
           <div class="flex items-center gap-2.5 min-w-0">
-            <input type="checkbox" name="monitor-channel" value="${c.id}" ${isChecked ? 'checked' : ''} class="w-4 h-4 rounded border-[#2a2a2d] text-[#84cc6e] bg-[#101011] focus:ring-0 cursor-pointer accent-[#84cc6e]">
+            <input type="checkbox" name="monitor-channel" value="${c.id}" ${isChecked ? 'checked' : ''} class="w-4 h-4 rounded border-[#2a2a2d] text-[#30d158] bg-[#101011] focus:ring-0 cursor-pointer accent-[#30d158]">
             <span class="text-[#f2f2f3] font-medium text-xs truncate">${escapeHtml(c.name)}</span>
             <span class="text-[10px] text-[#8b8b90] uppercase font-mono">(${typeBadge})</span>
           </div>
@@ -847,255 +847,6 @@ function openCreateChannelInline() {
   }
 }
 window.openCreateChannelInline = openCreateChannelInline;
-
-async function submitWebhookForm(e) {
-  if (e && typeof e.preventDefault === 'function') {
-    e.preventDefault();
-  }
-
-  const idEl = document.getElementById('edit-webhook-id');
-  const id = idEl ? idEl.value.trim() : '';
-  const submitBtn = document.getElementById('save-webhook-btn');
-  const originalText = id ? 'Save Webhook' : 'Add Webhook';
-
-  if (submitBtn) {
-    submitBtn.disabled = true;
-    submitBtn.innerText = id ? 'Saving...' : 'Adding...';
-  }
-
-  try {
-    const name = (document.getElementById('w-name')?.value || '').trim();
-    const provider = (document.getElementById('w-provider')?.value || 'discord').toLowerCase();
-    const url = (document.getElementById('w-url')?.value || '').trim();
-    const isEnabled = document.getElementById('w-enabled') ? document.getElementById('w-enabled').checked : true;
-    const notifyResolve = document.getElementById('w-notify-resolve') ? document.getElementById('w-notify-resolve').checked : true;
-    const useDefault = document.getElementById('w-use-default') ? document.getElementById('w-use-default').checked : true;
-    const customTemplateVal = (document.getElementById('w-template')?.value || '').trim();
-
-    if (!name || !url) {
-      showToast({
-        title: 'Validation Error',
-        message: 'Name and endpoint URL are required.',
-        type: 'warning',
-      });
-      return;
-    }
-
-    const payload = {
-      name,
-      provider,
-      url,
-      is_enabled: isEnabled,
-      use_default_template: useDefault,
-      notify_on_resolve: notifyResolve,
-      message_template: useDefault ? null : (customTemplateVal || null),
-    };
-
-    const endpoint = id ? `/api/webhooks/${id}` : '/api/webhooks';
-    const method = id ? 'PUT' : 'POST';
-
-    const res = await apiFetch(endpoint, {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-
-    if (res && (res.ok || res.status === 201)) {
-      closeModal();
-      showToast({
-        title: id ? 'Webhook Updated' : 'Webhook Added',
-        message: id
-          ? `Webhook "${payload.name}" updated successfully`
-          : `Webhook "${payload.name}" registered successfully`,
-        type: 'success',
-      });
-
-      if (typeof fetchDashboardData === 'function') {
-        fetchDashboardData();
-      }
-      if (typeof fetchWebhooksForModal === 'function') {
-        fetchWebhooksForModal();
-      }
-    } else if (res && res.status !== 401 && res.status !== 429) {
-      const err = await res.json().catch(() => ({}));
-      showToast({
-        title: 'Save Failed',
-        message: err.error || 'Failed to save webhook.',
-        type: 'error',
-      });
-    }
-  } catch (err) {
-    showToast({
-      title: 'Submission Error',
-      message: err.message || 'An error occurred while saving webhook.',
-      type: 'error',
-    });
-  } finally {
-    if (submitBtn) {
-      submitBtn.disabled = false;
-      submitBtn.innerText = originalText;
-    }
-  }
-}
-
-// ── Test Webhook Action ──────────────────────────────────────────────────────
-
-async function testWebhook(e) {
-  if (e && typeof e.preventDefault === 'function') {
-    e.preventDefault();
-  }
-
-  const testBtn = document.getElementById('test-webhook-btn');
-  let originalHtml = '';
-  if (testBtn) {
-    originalHtml = testBtn.innerHTML;
-    testBtn.disabled = true;
-    testBtn.innerHTML = `
-      <svg class="w-4 h-4 animate-spin text-[#0a84ff]" fill="none" viewBox="0 0 24 24">
-        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
-      </svg>
-      <span>Testing...</span>
-    `;
-  }
-
-  try {
-    const url = (document.getElementById('w-url')?.value || '').trim();
-    const provider = (document.getElementById('w-provider')?.value || 'discord').toLowerCase();
-    const useDefault = document.getElementById('w-use-default') ? document.getElementById('w-use-default').checked : true;
-    const templateVal = (document.getElementById('w-template')?.value || '').trim();
-
-    if (!url) {
-      showToast({
-        title: 'Endpoint Required',
-        message: 'Enter a webhook endpoint URL before sending a test notification.',
-        type: 'warning',
-      });
-      return;
-    }
-
-    const payload = {
-      url,
-      provider,
-      use_default_template: useDefault,
-      message_template: useDefault ? null : (templateVal || null),
-    };
-
-    const res = await apiFetch('/api/webhooks/test', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-
-    if (res) {
-      const data = await res.json().catch(() => ({}));
-      if (res.ok) {
-        showToast({
-          title: 'Notification Delivered',
-          message: data.message || 'Test notification delivered successfully.',
-          type: 'success',
-        });
-      } else {
-        showToast({
-          title: 'Delivery Failed',
-          message: data.error || 'Failed to send test payload to webhook.',
-          type: 'warning',
-        });
-      }
-    }
-  } catch (err) {
-    showToast({
-      title: 'Test Failed',
-      message: err.message || 'Network error while dispatching test payload.',
-      type: 'error',
-    });
-  } finally {
-    if (testBtn) {
-      testBtn.disabled = false;
-      testBtn.innerHTML = originalHtml;
-    }
-  }
-}
-
-// ── Webhook List in Modal ────────────────────────────────────────────────────
-
-async function fetchWebhooksForModal() {
-  const listContainer = document.getElementById('modal-webhooks-list');
-  if (!listContainer) return;
-
-  try {
-    const res = await apiFetch('/api/webhooks');
-    if (res && res.ok) {
-      cachedWebhooks = await res.json();
-      if (cachedWebhooks.length === 0) {
-        listContainer.innerHTML = `
-          <div class="text-[11px] text-neutral-500 dark:text-neutral-400 text-center py-2">
-            No webhook channels configured yet. Fill out the form above to add one.
-          </div>
-        `;
-        return;
-      }
-
-      listContainer.innerHTML = cachedWebhooks
-        .map((w) => {
-          const isEnabled = w.is_enabled === 1 || w.is_enabled === true;
-          const providerBadge =
-            w.provider.toLowerCase() === 'discord'
-              ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20'
-              : w.provider.toLowerCase() === 'slack'
-              ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
-              : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20';
-
-          return `
-          <div class="flex items-center justify-between p-2 rounded-xl bg-black/[0.03] dark:bg-black/40 border border-black/5 dark:border-white/10 hover:border-black/10 dark:hover:border-white/20 transition">
-            <div class="min-w-0 pr-2">
-              <div class="flex items-center gap-1.5">
-                <span class="font-medium text-neutral-900 dark:text-white text-xs truncate">${escapeHtml(w.name)}</span>
-                <span class="px-1.5 py-0.5 rounded text-[10px] uppercase font-mono border ${providerBadge}">${escapeHtml(w.provider)}</span>
-                ${!isEnabled ? '<span class="text-[10px] text-rose-600 dark:text-rose-400 font-medium">(Disabled)</span>' : ''}
-              </div>
-              <div class="text-[10px] text-neutral-500 dark:text-neutral-400 truncate max-w-xs font-mono">${escapeHtml(w.url)}</div>
-            </div>
-            <div class="flex items-center gap-1 shrink-0">
-              <button type="button" data-action="edit-webhook" data-id="${w.id}" class="text-xs text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white px-2 py-1 rounded hover:bg-black/5 dark:hover:bg-white/10 transition">Edit</button>
-              <button type="button" data-action="delete-webhook" data-id="${w.id}" data-name="${escapeHtml(w.name)}" class="text-xs text-rose-600 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300 px-2 py-1 rounded hover:bg-rose-500/10 transition">Delete</button>
-            </div>
-          </div>
-        `;
-        })
-        .join('');
-    }
-  } catch (err) {
-    console.error('Error fetching webhooks:', err);
-  }
-}
-
-async function deleteWebhook(id, name) {
-  if (!confirm(`Delete alert webhook "${name}"?`)) return;
-
-  try {
-    const res = await apiFetch(`/api/webhooks/${id}`, { method: 'DELETE' });
-    if (res && res.ok) {
-      showToast({
-        title: 'Webhook Removed',
-        message: `Webhook "${name}" deleted successfully`,
-        type: 'success',
-      });
-      if (document.getElementById('edit-webhook-id').value === id) {
-        resetWebhookForm();
-      }
-      fetchWebhooksForModal();
-    } else if (res && res.status !== 401 && res.status !== 429) {
-      showToast({
-        title: 'Delete Failed',
-        message: 'Failed to delete webhook',
-        type: 'error',
-      });
-    }
-  } catch (err) {
-    // Already handled by apiFetch
-  }
-}
 
 // ── Global Listeners for Modal (Backdrop & Escape Key) ───────────────────────
 
@@ -1176,8 +927,18 @@ function renderStatusPagesList(pages) {
 
   if (pages.length === 0) {
     container.innerHTML = `
-      <div class="p-8 text-center text-white/40 text-xs glass-card rounded-2xl">
-        No status pages found.
+      <div class="rounded-2xl border border-dashed border-white/15 bg-[#0e0e11] py-10 px-6 text-center flex flex-col items-center justify-center">
+        <div class="w-12 h-12 rounded-full bg-[rgba(48,209,88,0.1)] border border-[rgba(48,209,88,0.25)] flex items-center justify-center text-[#30d158] mb-3 shadow-inner">
+          <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z"/>
+          </svg>
+        </div>
+        <h4 class="text-sm font-bold text-white tracking-tight mb-1">No custom status pages</h4>
+        <p class="text-xs text-white/50 max-w-xs mx-auto leading-relaxed mb-4">Create customized public or private status pages with selected monitors.</p>
+        <button type="button" onclick="switchStatusPageTab('form')" class="h-9 px-4 rounded-xl bg-[#30d158] hover:bg-[#28b84d] text-[#0b0b0c] font-semibold text-xs inline-flex items-center gap-1.5 cursor-pointer shadow-sm transition">
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+          <span>Create Status Page</span>
+        </button>
       </div>
     `;
     return;
@@ -1688,8 +1449,9 @@ function renderMaintenanceList(windows) {
 
   if (!windows || windows.length === 0) {
     container.innerHTML = `
-      <div class="p-8 text-center text-white/40 text-xs glass-card rounded-2xl">
-        No scheduled maintenance windows found.
+      <div class="rounded-2xl border border-dashed border-white/15 bg-[#0e0e11] p-8 sm:p-10 text-center flex flex-col items-center justify-center">
+        <h4 class="text-sm font-semibold text-white tracking-tight mb-1.5">No scheduled maintenance</h4>
+        <p class="text-xs text-white/50 max-w-sm mx-auto leading-relaxed">Plan maintenance windows to temporarily pause alerts and notify users on status pages.</p>
       </div>
     `;
     return;

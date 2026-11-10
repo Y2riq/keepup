@@ -56,6 +56,7 @@ impl NotificationChannel {
     pub fn masked_view(&self) -> Self {
         let mut copy = self.clone();
         copy.url = mask_webhook_url(&self.url);
+        copy.telegram_bot_token = self.telegram_bot_token.as_ref().map(|_| "****".to_string());
         copy
     }
 }

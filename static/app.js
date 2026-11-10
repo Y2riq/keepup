@@ -863,7 +863,7 @@ function renderMonitors(forceRebuild = false) {
         <p class="text-sm text-[#a1a1aa] max-w-sm mx-auto mt-1 leading-relaxed">
           Coba periksa ejaan atau gunakan kata kunci pencarian yang lain.
         </p>
-        <button type="button" onclick="document.getElementById('search-input').value=''; filterMonitors(true);" class="mt-5 h-[34px] px-4 rounded-[10px] bg-[#141418] hover:bg-[#1a1a20] text-white text-xs font-semibold border border-[#2a2a30] transition inline-flex items-center gap-1.5 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#89cc9e]">
+        <button type="button" onclick="document.getElementById('search-input').value=''; filterMonitors(true);" class="mt-5 h-[34px] px-4 rounded-[10px] bg-[#141418] hover:bg-[#1a1a20] text-white text-xs font-semibold border border-[#2a2a30] transition inline-flex items-center gap-1.5 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#30d158]">
           <svg class="w-3.5 h-3.5 text-[#a1a1aa]" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
           </svg>
@@ -872,48 +872,36 @@ function renderMonitors(forceRebuild = false) {
       </div>
       `
       : `
-      <div class="w-full rounded-2xl border border-dotted border-white/15 glass-card px-6 flex flex-col items-center justify-center text-center" style="min-height: 520px; padding-top: 5rem; padding-bottom: 5rem;">
-        <!-- Lingkaran hijau gelap berisi logo KeepUp (#34d399) -->
-        <div class="w-14 h-14 rounded-full bg-[#042818] border border-[#34d399]/25 flex items-center justify-center mb-5" aria-hidden="true">
-          <img src="/favicon.svg" class="w-8 h-8" width="32" height="32" alt="KeepUp Logo" />
+      <div class="monitors-empty-box">
+        <!-- Lingkaran hijau gelap berisi garis denyut/pulse (#30d158) -->
+        <div class="monitors-empty-icon" aria-hidden="true">
+          <svg class="w-7 h-7" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#30d158" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+          </svg>
         </div>
 
-        <h3 class="text-xl font-bold text-white tracking-tight mb-2">Belum ada monitor</h3>
-        <p class="text-sm text-white/40 max-w-md mx-auto leading-relaxed mb-6">
-          Tambahkan target pertama Anda untuk mulai memantau uptime,<br class="hidden sm:inline"/> waktu respons, dan status kesehatan secara otomatis.
+        <h3 class="text-lg sm:text-xl font-bold text-white tracking-tight mb-2">Belum ada monitor</h3>
+        <p class="text-xs sm:text-sm text-white/50 max-w-md mx-auto leading-relaxed mb-6">
+          Tambahkan target pertama Anda untuk mulai memantau<br class="hidden sm:inline"/> uptime, waktu respons, dan status kesehatan secara otomatis.
         </p>
 
         <!-- Tombol CTA Tambah Monitor -->
-        <button type="button" onclick="openEditMonitorModal(null)" aria-label="Tambah Monitor" class="h-10 px-5 rounded-xl bg-[#86efac] hover:bg-[#a7f3d0] text-[#04130d] font-semibold text-sm transition inline-flex items-center gap-2 cursor-pointer shadow-sm active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86efac]">
-          <svg class="w-4 h-4 stroke-[2.5]" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+        <button type="button" onclick="openEditMonitorModal(null)" aria-label="Tambah Monitor" class="monitors-empty-cta">
+          <svg class="w-4 h-4" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
           </svg>
           <span>Tambah Monitor</span>
         </button>
 
-        <!-- Garis pembatas halus -->
-        <div class="w-full max-w-md border-t border-white/5 mt-8 mb-5" style="padding-top: 1rem;"></div>
-
-        <span class="text-[11px] font-medium uppercase tracking-wider text-white/40 mb-3">MULAI CEPAT DENGAN TEMPLATE:</span>
-
-        <!-- Tiga tombol pintasan template dengan ikon -->
-        <div class="flex flex-wrap items-center justify-center gap-2.5">
-          <button type="button" onclick="openCreateMonitorWithTemplate('http')" class="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-white/80 hover:text-white border border-white/10 text-xs font-medium transition inline-flex items-center gap-2 cursor-pointer">
-            <svg class="w-3.5 h-3.5 text-white/60" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/>
-            </svg>
+        <!-- Tiga tombol pintasan template -->
+        <div class="monitors-template-row">
+          <button type="button" onclick="openCreateMonitorWithTemplate('http')" class="monitors-template-btn">
             <span>Website HTTP(S)</span>
           </button>
-          <button type="button" onclick="openCreateMonitorWithTemplate('tcp')" class="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-white/80 hover:text-white border border-white/10 text-xs font-medium transition inline-flex items-center gap-2 cursor-pointer">
-            <svg class="w-3.5 h-3.5 text-white/60" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"/>
-            </svg>
-            <span>TCP Port</span>
+          <button type="button" onclick="openCreateMonitorWithTemplate('tcp')" class="monitors-template-btn">
+            <span>Port TCP</span>
           </button>
-          <button type="button" onclick="openCreateMonitorWithTemplate('ping')" class="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-white/80 hover:text-white border border-white/10 text-xs font-medium transition inline-flex items-center gap-2 cursor-pointer">
-            <svg class="w-3.5 h-3.5 text-white/60" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
-            </svg>
+          <button type="button" onclick="openCreateMonitorWithTemplate('ping')" class="monitors-template-btn">
             <span>Ping</span>
           </button>
         </div>
@@ -1338,7 +1326,7 @@ async function loadWebhooksPreview() {
   const container = document.getElementById('webhooks-preview-list');
   if (!container) return;
   try {
-    const res = await apiFetch('/api/webhooks');
+    const res = await apiFetch('/api/admin/channels');
     if (res && res.ok) {
       window.allWebhooks = await res.json();
       renderWebhooksSection(window.allWebhooks);
@@ -1464,11 +1452,11 @@ function setViewMode(mode) {
     gridBtn.setAttribute('aria-pressed', isGrid ? 'true' : 'false');
     listBtn.setAttribute('aria-pressed', isGrid ? 'false' : 'true');
     if (isGrid) {
-      gridBtn.className = 'p-1 rounded-lg text-white bg-white/10 transition';
-      listBtn.className = 'p-1 rounded-lg text-white/40 hover:text-white transition';
+      gridBtn.className = 'w-8 h-8 rounded-lg flex items-center justify-center text-white bg-white/10 transition';
+      listBtn.className = 'w-8 h-8 rounded-lg flex items-center justify-center text-white/40 hover:text-white transition';
     } else {
-      listBtn.className = 'p-1 rounded-lg text-white bg-white/10 transition';
-      gridBtn.className = 'p-1 rounded-lg text-white/40 hover:text-white transition';
+      listBtn.className = 'w-8 h-8 rounded-lg flex items-center justify-center text-white bg-white/10 transition';
+      gridBtn.className = 'w-8 h-8 rounded-lg flex items-center justify-center text-white/40 hover:text-white transition';
     }
   }
 
@@ -2989,22 +2977,30 @@ function renderNotificationChannels(channels) {
   if (!container) return;
 
   if (!channels || channels.length === 0) {
+    container.className = 'w-full';
     container.innerHTML = `
-      <div class="col-span-full glass-card rounded-2xl p-12 text-center text-white/50 text-xs space-y-3 border border-white/10">
-        <div class="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center mx-auto text-white/40">
-          <svg class="w-5 h-5 text-[#30d158]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <div class="monitors-empty-box">
+        <div class="monitors-empty-icon" aria-hidden="true">
+          <svg class="w-7 h-7" width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
           </svg>
         </div>
-        <p class="font-medium text-white/70">No notification channels registered yet.</p>
-        <p class="text-[11px] text-white/40">Add reusable Discord, Slack, Custom Webhook, or Telegram endpoints to receive instant alerts.</p>
-        <button onclick="openCreateChannelModal()" class="px-4 py-1.5 rounded-xl bg-[#30d158] hover:bg-[#28b84d] text-[#0b0b0c] text-xs font-semibold shadow-sm hover:shadow-[0_0_15px_rgba(48,209,88,0.35)] transition cursor-pointer">
-          + Add First Channel
+        <h3 class="text-lg sm:text-xl font-bold text-white tracking-tight mb-2">No notification channels yet</h3>
+        <p class="text-xs sm:text-sm text-white/50 max-w-md mx-auto leading-relaxed mb-6">
+          Add reusable Discord, Slack, Custom Webhook, or Telegram endpoints to receive instant alerts when a monitor status changes.
+        </p>
+        <button type="button" onclick="openCreateChannelModal()" aria-label="Tambah Channel" class="monitors-empty-cta">
+          <svg class="w-4 h-4" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+          </svg>
+          <span>Add Channel</span>
         </button>
       </div>
     `;
     return;
   }
+
+  container.className = 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4';
 
   container.innerHTML = channels.map((c) => renderChannelCard(c)).join('');
 }
@@ -3470,14 +3466,30 @@ function renderAdminIncidents(incidents) {
   if (!container) return;
 
   if (!incidents || incidents.length === 0) {
+    container.className = 'w-full';
     container.innerHTML = `
-      <div class="glass-card rounded-2xl p-8 text-center text-white/50 text-xs space-y-2 border border-white/5">
-        <p class="font-medium text-white/70">No incidents recorded</p>
-        <p class="text-white/40">Use "+ Create Incident" above to declare an active disruption or maintenance record.</p>
+      <div class="monitors-empty-box">
+        <div class="monitors-empty-icon" aria-hidden="true">
+          <svg class="w-7 h-7" width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+        </div>
+        <h3 class="text-lg sm:text-xl font-bold text-white tracking-tight mb-2">No active incidents recorded</h3>
+        <p class="text-xs sm:text-sm text-white/50 max-w-md mx-auto leading-relaxed mb-6">
+          All systems are running smoothly without disruptions. Use the button below to declare an incident or maintenance notice if needed.
+        </p>
+        <button type="button" onclick="openCreateIncidentModal()" aria-label="Create Incident" class="monitors-empty-cta">
+          <svg class="w-4 h-4" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+          </svg>
+          <span>Create Incident</span>
+        </button>
       </div>
     `;
     return;
   }
+
+  container.className = 'space-y-4';
 
   const html = incidents.map((inc) => {
     const isResolved = inc.status === 'RESOLVED';

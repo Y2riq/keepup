@@ -130,18 +130,19 @@ pub async fn update_monitor(
         .ssl_warning_days
         .unwrap_or(existing.ssl_warning_days);
     let check_type = payload.check_type.unwrap_or(existing.check_type);
-    let port = payload.port.or(existing.port);
-    let dns_record_type = payload.dns_record_type.or(existing.dns_record_type);
-    let dns_expected = payload.dns_expected.clone().or(payload.dns_expected_value.clone()).or(existing.dns_expected);
-    let dns_expected_value = payload.dns_expected_value.or(payload.dns_expected).or(existing.dns_expected_value);
+    let port = if payload.port.is_some() { payload.port } else { existing.port };
+    let dns_record_type = if payload.dns_record_type.is_some() { payload.dns_record_type } else { existing.dns_record_type };
+    let dns_expected_val = payload.dns_expected_value.or(payload.dns_expected);
+    let dns_expected = if dns_expected_val.is_some() { dns_expected_val.clone() } else { existing.dns_expected };
+    let dns_expected_value = if dns_expected_val.is_some() { dns_expected_val } else { existing.dns_expected_value };
 
     let http_method = payload.http_method.unwrap_or(existing.http_method);
     let expected_status = payload.expected_status.unwrap_or(existing.expected_status);
-    let request_headers = payload.request_headers.or(existing.request_headers);
-    let body_keyword = payload.body_keyword.or(existing.body_keyword);
-    let json_pointer = payload.json_pointer.or(existing.json_pointer);
-    let json_expected = payload.json_expected.or(existing.json_expected);
-    let degraded_latency_ms = payload.degraded_latency_ms.or(existing.degraded_latency_ms);
+    let request_headers = if payload.request_headers.is_some() { payload.request_headers } else { existing.request_headers };
+    let body_keyword = if payload.body_keyword.is_some() { payload.body_keyword } else { existing.body_keyword };
+    let json_pointer = if payload.json_pointer.is_some() { payload.json_pointer } else { existing.json_pointer };
+    let json_expected = if payload.json_expected.is_some() { payload.json_expected } else { existing.json_expected };
+    let degraded_latency_ms = if payload.degraded_latency_ms.is_some() { payload.degraded_latency_ms } else { existing.degraded_latency_ms };
     let resend_interval_mins = payload.resend_interval_mins.unwrap_or(existing.resend_interval_mins);
     let grace_secs = payload.grace_secs.unwrap_or(existing.grace_secs);
 
@@ -541,13 +542,7 @@ pub async fn get_global_monitoring_state(
 /// Query all registered monitors from SQLite ordered by creation date descending.
 pub async fn get_all_monitors(pool: &SqlitePool) -> Result<Vec<Monitor>, AppError> {
     let monitors = sqlx::query_as::<_, Monitor>(
-        "SELECT id, name, url, check_interval_secs, timeout_secs, max_retries, \
-                is_active, is_public, last_status, down_since, created_at, \
-                check_domain_expiry, domain_warning_days, domain_expires_at, \
-                domain_days_remaining, last_domain_alert_days, domain_last_checked_at, \
-                check_ssl, ssl_warning_days, ssl_expires_at, ssl_days_remaining, ssl_last_checked_at, \
-                check_type, port, dns_record_type, dns_expected_value \
-         FROM monitors ORDER BY created_at DESC",
+        "SELECT * FROM monitors ORDER BY created_at DESC",
     )
     .fetch_all(pool)
     .await?;
@@ -672,13 +667,7 @@ pub async fn get_monitors_by_ids(
     }
     let placeholders = ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
     let sql = format!(
-        "SELECT id, name, url, check_interval_secs, timeout_secs, max_retries, \
-                is_active, is_public, last_status, down_since, created_at, \
-                check_domain_expiry, domain_warning_days, domain_expires_at, \
-                domain_days_remaining, last_domain_alert_days, domain_last_checked_at, \
-                check_ssl, ssl_warning_days, ssl_expires_at, ssl_days_remaining, ssl_last_checked_at, \
-                check_type, port, dns_record_type, dns_expected_value \
-         FROM monitors WHERE id IN ({placeholders})"
+        "SELECT * FROM monitors WHERE id IN ({placeholders})"
     );
     let mut q = sqlx::query_as::<_, Monitor>(&sql);
     for id in ids {

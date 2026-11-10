@@ -539,6 +539,8 @@ let is_http = monitor.check_type.is_empty() || monitor.check_type == "http";
     }
 
     // Milestone Alert Suppression Tracking: only dispatch at [0, 1, 3, 7, 14, 30] days
+    let mut pending_alert: Option<AlertPayload> = None;
+
     if monitor.check_domain_expiry == 1 {
         if let Some(days) = domain_days {
             if days <= monitor.domain_warning_days {
@@ -585,7 +587,7 @@ let is_http = monitor.check_type.is_empty() || monitor.check_type == "http";
                             domain_expires_at: domain_expires.clone(),
                         };
 
-                        return (prev.clone(), Some(alert_payload));
+                        pending_alert = Some(alert_payload);
                     }
                 }
             } else if monitor.last_domain_alert_days.is_some() {
@@ -617,10 +619,6 @@ let is_http = monitor.check_type.is_empty() || monitor.check_type == "http";
             Err(e) => {
                 warn!(monitor = %monitor.name, "TLS/SSL certificate check failed: {e}");
             }
-        }
-    } else if let Some(ref exp_str) = monitor.ssl_expires_at {
-        if let Ok((_, remaining)) = crate::checker::domain::calculate_days_remaining(exp_str, Utc::now()) {
-            ssl_days = Some(remaining as i32);
         }
     } else if let Some(ref exp_str) = monitor.ssl_expires_at {
         if let Ok((_, remaining)) = crate::checker::domain::calculate_days_remaining(exp_str, Utc::now()) {
@@ -675,7 +673,9 @@ let is_http = monitor.check_type.is_empty() || monitor.check_type == "http";
                             domain_expires_at: None,
                         };
 
-                        return (prev.clone(), Some(alert_payload));
+                        if pending_alert.is_none() {
+                            pending_alert = Some(alert_payload);
+                        }
                     }
                 }
             } else if monitor.last_ssl_alert_days.is_some() {
@@ -942,7 +942,7 @@ let result = execute_probe(client, monitor, allow_private).await;
         }
     }
 
-    (next, None)
+    (next, pending_alert)
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -1044,10 +1044,19 @@ pub fn format_downtime_duration(secs: u64) -> String {
 /// Respects grace_secs and does NOT mark monitors DOWN before check_interval_secs + grace_secs
 /// has elapsed since creation (Review Focus #5).
 pub async fn check_push_deadlines(state: &AppState) {
-    let push_monitors: Vec<crate::db::monitors::Monitor> = match sqlx::query_as(
+    #[derive(sqlx::FromRow)]
+    struct PushDeadlineRow {
+        #[sqlx(flatten)]
+        monitor: crate::db::monitors::Monitor,
+        last_log_checked_at: Option<String>,
+    }
+
+    let push_monitors: Vec<PushDeadlineRow> = match sqlx::query_as(
         r#"
-        SELECT * FROM monitors
-        WHERE is_active = 1 AND push_token IS NOT NULL
+        SELECT m.*,
+               (SELECT checked_at FROM check_logs cl WHERE cl.monitor_id = m.id ORDER BY checked_at DESC LIMIT 1) as last_log_checked_at
+        FROM monitors m
+        WHERE m.is_active = 1 AND m.push_token IS NOT NULL
         "#,
     )
     .fetch_all(&state.db)
@@ -1059,14 +1068,9 @@ pub async fn check_push_deadlines(state: &AppState) {
 
     let now = Utc::now();
 
-    for monitor in push_monitors {
-        let last_time_str: Option<String> = sqlx::query_scalar(
-            "SELECT checked_at FROM check_logs WHERE monitor_id = ? ORDER BY checked_at DESC LIMIT 1"
-        )
-        .bind(&monitor.id)
-        .fetch_optional(&state.db)
-        .await
-        .unwrap_or(None);
+    for row in push_monitors {
+        let monitor = row.monitor;
+        let last_time_str = row.last_log_checked_at;
 
         let parse_dt = |s: &str| -> Option<chrono::DateTime<Utc>> {
             let trimmed = s.trim();
@@ -1095,6 +1099,13 @@ pub async fn check_push_deadlines(state: &AppState) {
         let is_overdue = (now - baseline).num_seconds() > deadline_secs;
 
         if is_overdue && monitor.last_status != "DOWN" {
+            let in_maint = crate::db::maintenance::is_monitor_in_maintenance(&state.db, &monitor.id)
+                .await
+                .unwrap_or(false);
+            if in_maint {
+                continue;
+            }
+
             let error_msg = format!(
                 "Missed heartbeat deadline: expected every {}s (+{}s grace)",
                 monitor.check_interval_secs, monitor.grace_secs

@@ -108,26 +108,20 @@ pub async fn ping_http_with_config(client: &Client, config: &HttpProbeConfig<'_>
                 };
             }
 
-            // If body keyword or JSON pointer inspection is configured, read up to 64KB
+            // If body keyword or JSON pointer inspection is configured, stream up to 64KB safely to prevent unbounded memory allocation
             if config.body_keyword.is_some() || config.json_pointer.is_some() {
-                let bytes = match resp.bytes().await {
-                    Ok(b) => b,
-                    Err(e) => {
-                        return CheckResult {
-                            status_code: Some(status as i32),
-                            latency_ms,
-                            is_up: false,
-                            is_degraded: false,
-                            error_msg: Some(format!("Failed to read response body: {e}")),
-                        };
+                let max_body_bytes: usize = 64 * 1024;
+                let mut bytes = Vec::with_capacity(4096);
+                let mut stream = resp;
+                while let Ok(Some(chunk)) = stream.chunk().await {
+                    let to_take = chunk.len().min(max_body_bytes.saturating_sub(bytes.len()));
+                    bytes.extend_from_slice(&chunk[..to_take]);
+                    if bytes.len() >= max_body_bytes {
+                        break;
                     }
-                };
+                }
 
-                let body_slice = if bytes.len() > 64 * 1024 {
-                    &bytes[..64 * 1024]
-                } else {
-                    &bytes[..]
-                };
+                let body_slice = &bytes[..];
                 let body_str = String::from_utf8_lossy(body_slice);
 
                 if let Some(kw) = config.body_keyword {
@@ -143,7 +137,7 @@ pub async fn ping_http_with_config(client: &Client, config: &HttpProbeConfig<'_>
                 }
 
                 if let Some(pointer) = config.json_pointer {
-                    let parsed: serde_json::Value = match serde_json::from_slice(&bytes) {
+                    let parsed: serde_json::Value = match serde_json::from_slice(body_slice) {
                         Ok(v) => v,
                         Err(e) => {
                             return CheckResult {

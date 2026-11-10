@@ -495,54 +495,10 @@ pub async fn resume_all_monitors(
     let updated = monitors::resume_all_monitors(&state.db).await?;
     let (global_state, active, total) = monitors::get_global_monitoring_state(&state.db).await?;
 
-    // Instantly trigger an out-of-band synthetic evaluation check for all targets
+    // Signal scheduler to immediately re-evaluate resumed monitors
     let all_monitors = monitors::get_all_monitors(&state.db).await.unwrap_or_default();
     for monitor in all_monitors {
-        let _ = state.reload_tx.send(monitor.id.clone());
-
-        let pool = state.db.clone();
-        let client = state.http_client.clone();
-        tokio::spawn(async move {
-            let res = crate::checker::execute_probe(
-                &client,
-                &monitor.check_type,
-                &monitor.url,
-                monitor.port,
-                monitor.dns_record_type.as_deref(),
-                monitor.dns_expected_value.as_deref(),
-                monitor.timeout_secs as u64,
-            )
-            .await;
-            let is_up = res.is_up;
-            let status_str = if is_up { "UP" } else { "DOWN" };
-            let now_rfc3339 = chrono::Utc::now().to_rfc3339();
-            let down_since = if is_up { None } else { Some(now_rfc3339.as_str()) };
-
-            let _ = sqlx::query(
-                r#"
-                INSERT INTO check_logs (monitor_id, status_code, latency_ms, response_time_ms, is_up, error_msg, checked_at, created_at, domain_days_remaining, ssl_days_remaining)
-                VALUES (?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'), ?, ?)
-                "#,
-            )
-            .bind(&monitor.id)
-            .bind(res.status_code)
-            .bind(res.latency_ms)
-            .bind(res.latency_ms)
-            .bind(is_up as i32)
-            .bind(&res.error_msg)
-            .bind(monitor.domain_days_remaining)
-            .bind(monitor.ssl_days_remaining)
-            .execute(&pool)
-            .await;
-
-            let _ = monitors::update_monitor_status(
-                &pool,
-                &monitor.id,
-                status_str,
-                down_since,
-            )
-            .await;
-        });
+        let _ = state.reload_tx.send(monitor.id);
     }
 
     info!(
@@ -626,53 +582,8 @@ pub async fn bulk_resume_monitors(
     let ids = payload.ids();
     let updated = monitors::bulk_resume_monitors(&state.db, ids).await?;
 
-    let resumed_monitors = monitors::get_monitors_by_ids(&state.db, ids).await.unwrap_or_default();
-    for monitor in resumed_monitors {
-        let _ = state.reload_tx.send(monitor.id.clone());
-
-        let pool = state.db.clone();
-        let client = state.http_client.clone();
-        tokio::spawn(async move {
-            let res = crate::checker::execute_probe(
-                &client,
-                &monitor.check_type,
-                &monitor.url,
-                monitor.port,
-                monitor.dns_record_type.as_deref(),
-                monitor.dns_expected_value.as_deref(),
-                monitor.timeout_secs as u64,
-            )
-            .await;
-            let is_up = res.is_up;
-            let status_str = if is_up { "UP" } else { "DOWN" };
-            let now_rfc3339 = chrono::Utc::now().to_rfc3339();
-            let down_since = if is_up { None } else { Some(now_rfc3339.as_str()) };
-
-            let _ = sqlx::query(
-                r#"
-                INSERT INTO check_logs (monitor_id, status_code, latency_ms, response_time_ms, is_up, error_msg, checked_at, created_at, domain_days_remaining, ssl_days_remaining)
-                VALUES (?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'), ?, ?)
-                "#,
-            )
-            .bind(&monitor.id)
-            .bind(res.status_code)
-            .bind(res.latency_ms)
-            .bind(res.latency_ms)
-            .bind(is_up as i32)
-            .bind(&res.error_msg)
-            .bind(monitor.domain_days_remaining)
-            .bind(monitor.ssl_days_remaining)
-            .execute(&pool)
-            .await;
-
-            let _ = monitors::update_monitor_status(
-                &pool,
-                &monitor.id,
-                status_str,
-                down_since,
-            )
-            .await;
-        });
+    for id in ids {
+        let _ = state.reload_tx.send(id.clone());
     }
 
     info!(
@@ -1213,6 +1124,8 @@ pub async fn update_channel(
             let t = s.trim().to_string();
             if t.is_empty() {
                 None
+            } else if t == "****" {
+                existing.telegram_bot_token
             } else {
                 Some(t)
             }
@@ -1240,6 +1153,18 @@ pub async fn update_channel(
             }
         }
         None => existing.telegram_thread_id,
+    };
+
+    let telegram_url;
+    let url = if channel_type == "telegram" && existing.url.starts_with("https://api.telegram.org/bot") {
+        if let Some(ref tok) = telegram_bot_token {
+            telegram_url = format!("https://api.telegram.org/bot{tok}/sendMessage");
+            &telegram_url
+        } else {
+            url
+        }
+    } else {
+        url
     };
 
     let updated = crate::db::notifications::update_channel(
@@ -2220,7 +2145,11 @@ mod tests {
     async fn test_discord_channel_custom_bot_and_avatar_test_dispatch() {
         use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
-        let (app, state) = setup_test_app().await;
+        let (_base_app, base_state) = setup_test_app().await;
+        let mut allow_priv_cfg = crate::config::Config::from_env();
+        allow_priv_cfg.allow_private_targets = true;
+        let state = AppState::new_for_test(base_state.db.clone(), allow_priv_cfg);
+        let app = crate::api::router(state.clone()).with_state(state.clone());
 
         let token = crate::api::auth::create_jwt(
             &state.config.admin_user,
@@ -2332,7 +2261,11 @@ mod tests {
     async fn test_telegram_channel_bot_and_topic_thread_dispatch() {
         use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
-        let (app, state) = setup_test_app().await;
+        let (_base_app, base_state) = setup_test_app().await;
+        let mut allow_priv_cfg = crate::config::Config::from_env();
+        allow_priv_cfg.allow_private_targets = true;
+        let state = AppState::new_for_test(base_state.db.clone(), allow_priv_cfg);
+        let app = crate::api::router(state.clone()).with_state(state.clone());
 
         let token = crate::api::auth::create_jwt(
             &state.config.admin_user,
@@ -2388,7 +2321,7 @@ mod tests {
             serde_json::from_slice(&body).unwrap();
         assert_eq!(chan.name, "DevOps Supergroup");
         assert_eq!(chan.channel_type, "telegram");
-        assert_eq!(chan.telegram_bot_token.as_deref(), Some("123456:TESTBOTTOKENABC"));
+        assert_eq!(chan.telegram_bot_token.as_deref(), Some("****"));
         assert_eq!(chan.telegram_chat_id.as_deref(), Some("-1001987654321"));
         assert_eq!(chan.telegram_thread_id.as_deref(), Some("42"));
 

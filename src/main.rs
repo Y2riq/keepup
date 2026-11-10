@@ -78,31 +78,7 @@ impl AppState {
 /// Assemble the complete Axum HTTP application router with body size limits,
 /// explicit-only CORS, gzip compression, and defensive HTTP security headers.
 pub fn build_http_app(state: Arc<AppState>) -> axum::Router {
-    let mut cors = CorsLayer::new()
-        .allow_methods([
-            Method::GET,
-            Method::POST,
-            Method::PUT,
-            Method::DELETE,
-            Method::PATCH,
-            Method::OPTIONS,
-        ])
-        .allow_headers([
-            header::CONTENT_TYPE,
-            header::AUTHORIZATION,
-            header::ACCEPT,
-            header::COOKIE,
-        ])
-        .allow_origin(AllowOrigin::predicate(|origin, _| {
-            let origin_bytes = origin.as_bytes();
-            origin_bytes.starts_with(b"http://localhost")
-                || origin_bytes.starts_with(b"http://127.0.0.1")
-                || origin_bytes.starts_with(b"https://localhost")
-                || origin_bytes.starts_with(b"https://127.0.0.1")
-        }))
-        .allow_credentials(true);
-
-    if !state.config.cors_allowed_origins.is_empty() {
+    let cors = if !state.config.cors_allowed_origins.is_empty() {
         let parsed_origins: Vec<HeaderValue> = state
             .config
             .cors_allowed_origins
@@ -110,7 +86,7 @@ pub fn build_http_app(state: Arc<AppState>) -> axum::Router {
             .filter_map(|o| HeaderValue::from_str(o).ok())
             .collect();
         if !parsed_origins.is_empty() {
-            cors = CorsLayer::new()
+            CorsLayer::new()
                 .allow_methods([
                     Method::GET,
                     Method::POST,
@@ -126,9 +102,13 @@ pub fn build_http_app(state: Arc<AppState>) -> axum::Router {
                     header::COOKIE,
                 ])
                 .allow_origin(parsed_origins)
-                .allow_credentials(true);
+                .allow_credentials(true)
+        } else {
+            CorsLayer::new()
         }
-    }
+    } else {
+        CorsLayer::new()
+    };
 
     axum::Router::new()
         .route("/robots.txt", axum::routing::get(api::public::robots_txt))

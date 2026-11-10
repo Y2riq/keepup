@@ -320,7 +320,6 @@ pub async fn create_status_page(
     tx.commit().await?;
 
     tracing::info!(slug = %slug, count = inserted_count, "Persisted status page monitor assignments");
-    println!("[status_pages] Created status page '{}' with {} monitor assignments", slug, inserted_count);
 
     let page = get_status_page(pool, slug.trim())
         .await?
@@ -406,7 +405,6 @@ pub async fn update_status_page(
     tx.commit().await?;
 
     tracing::info!(slug = %slug, count = inserted_count, "Updated status page and persisted monitor assignments");
-    println!("[status_pages] Updated status page '{}' with {} monitor assignments", slug, inserted_count);
 
     let updated_page = get_status_page(pool, slug)
         .await?

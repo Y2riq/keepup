@@ -99,7 +99,11 @@ pub async fn push_handler(
     let old_status = monitor.last_status.clone();
     let new_status = raw_status.clone();
 
-    if old_status != new_status {
+    let in_maint = crate::db::maintenance::is_monitor_in_maintenance(&state.db, &monitor.id)
+        .await
+        .unwrap_or(false);
+
+    if old_status != new_status && !in_maint {
         let new_down_since = if new_status == "DOWN" {
             Some(now_str.clone())
         } else {

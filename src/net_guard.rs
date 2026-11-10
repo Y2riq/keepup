@@ -46,6 +46,40 @@ fn is_always_blocked_v6(v6: Ipv6Addr) -> bool {
     if let Some(v4) = v6.to_ipv4_mapped() {
         return is_always_blocked_v4(v4);
     }
+    let seg = v6.segments();
+
+    // 6to4 2002::/16 extracts embedded IPv4 in segments 1 and 2
+    if seg[0] == 0x2002 {
+        let v4 = Ipv4Addr::new(
+            (seg[1] >> 8) as u8,
+            seg[1] as u8,
+            (seg[2] >> 8) as u8,
+            seg[2] as u8,
+        );
+        if is_always_blocked_v4(v4) {
+            return true;
+        }
+    }
+
+    // NAT64 Well-Known Prefix 64:ff9b::/96 extracts embedded IPv4 in segments 6 and 7
+    if seg[0] == 0x0064
+        && seg[1] == 0xff9b
+        && seg[2] == 0
+        && seg[3] == 0
+        && seg[4] == 0
+        && seg[5] == 0
+    {
+        let v4 = Ipv4Addr::new(
+            (seg[6] >> 8) as u8,
+            seg[6] as u8,
+            (seg[7] >> 8) as u8,
+            seg[7] as u8,
+        );
+        if is_always_blocked_v4(v4) {
+            return true;
+        }
+    }
+
     v6.is_unspecified() || v6.is_multicast() || v6 == AWS_IMDS_IPV6
 }
 

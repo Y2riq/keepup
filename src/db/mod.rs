@@ -34,8 +34,8 @@ pub fn build_connect_options(database_url: &str) -> Result<SqliteConnectOptions,
         .create_if_missing(true)
         .busy_timeout(Duration::from_millis(5000))
         .foreign_keys(true)
-        .pragma("cache_size", "-64000") // 64 MB page cache
-        .pragma("mmap_size", "268435456") // 256 MB memory-mapped I/O
+        .pragma("cache_size", "-4000") // 4 MB page cache per connection (keeps idle RAM < 15 MB)
+        .pragma("mmap_size", "33554432") // 32 MB memory-mapped I/O
         .pragma("temp_store", "2") // Memory temp store
         .log_statements(tracing::log::LevelFilter::Debug);
 
@@ -56,15 +56,23 @@ pub async fn init_pools(database_url: &str) -> Result<(SqlitePool, SqlitePool), 
     let connect_options = build_connect_options(database_url)?;
 
     let read_conns = if is_memory { 1 } else { 10 };
-    let read_pool = SqlitePoolOptions::new()
-        .max_connections(read_conns)
-        .connect_with(connect_options.clone())
-        .await?;
-
-    let write_pool = SqlitePoolOptions::new()
-        .max_connections(1)
-        .connect_with(connect_options)
-        .await?;
+    let (read_pool, write_pool) = if is_memory {
+        let pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(connect_options)
+            .await?;
+        (pool.clone(), pool)
+    } else {
+        let read_pool = SqlitePoolOptions::new()
+            .max_connections(read_conns)
+            .connect_with(connect_options.clone())
+            .await?;
+        let write_pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(connect_options)
+            .await?;
+        (read_pool, write_pool)
+    };
 
     #[cfg(unix)]
     if !is_memory {
